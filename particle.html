@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Painter - Draw where particles hover</title>
+    <style>
+        * {
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 24px;
+        }
+        .sub {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .toolbar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            align-items: center;
+        }
+        .tool-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 0 10px;
+            border-right: 1px solid #ccc;
+        }
+        .tool-group:last-child {
+            border-right: none;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        button.primary {
+            background: #4CAF50;
+            color: white;
+        }
+        button.primary:hover {
+            background: #45a049;
+            transform: scale(1.02);
+        }
+        button.danger {
+            background: #f44336;
+            color: white;
+        }
+        button.danger:hover {
+            background: #da190b;
+        }
+        button.warning {
+            background: #ff9800;
+            color: white;
+        }
+        button.warning:hover {
+            background: #e68900;
+        }
+        input[type="color"] {
+            width: 50px;
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+        .canvas-area {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .canvas-wrapper {
+            text-align: center;
+            position: relative;
+        }
+        .canvas-label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #imageCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #drawCanvas {
+            position: relative;
+            background: rgba(0,0,0,0.1);
+            cursor: crosshair;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status.success {
+            background: #c8e6c9;
+            color: #388e3c;
+        }
+        .status.error {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+        .status.warning {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .brush-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: black;
+            display: inline-block;
+            margin-left: 10px;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px black;
+        }
+        .toggle-view-btn {
+            background: #9c27b0;
+            color: white;
+            font-size: 12px;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+        
+        /* Scroll to bottom button */
+        .scroll-to-bottom {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .scroll-to-bottom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .scroll-to-bottom:active {
+            transform: translateY(0);
+        }
+        
+        /* Progress bar for video generation */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #2196F3);
+            width: 0%;
+            transition: width 0.1s linear;
+            border-radius: 2px;
+        }
+        
+        .format-select {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Scroll to bottom button -->
+    <button class="scroll-to-bottom" id="scrollToBottomBtn">
+        ⬇️ Scroll to Bottom
+    </button>
+
+    <div class="container">
+        <h1>✨ Particle Painter</h1>
+        <div class="sub">Draw on the image → particles will hover where you paint!</div>
+
+        <div class="toolbar">
+            <div class="tool-group">
+                📁 <input type="file" id="uploadImage" accept="image/jpeg,image/png,image/jpg">
+            </div>
+            <div class="tool-group">
+                🖌️ Brush Size:
+                <input type="range" id="brushSize" min="5" max="50" value="20">
+                <span id="sizeValue">20</span>px
+                <div class="brush-preview" id="brushPreview"></div>
+            </div>
+            <div class="tool-group">
+                🎨 Particle Color:
+                <input type="color" id="particleColor" value="#ff6b6b">
+            </div>
+            <div class="tool-group">
+                📹 Format:
+                <select id="videoFormat" class="format-select">
+                    <option value="mp4">MP4 (Recommended)</option>
+                    <option value="webm">WebM</option>
+                </select>
+            </div>
+            <div class="tool-group">
+                <button id="eraseModeBtn" class="warning">🧽 Eraser</button>
+                <button id="drawModeBtn" class="primary">✏️ Draw</button>
+                <button id="clearMaskBtn" class="danger">🗑️ Clear All</button>
+                <button id="toggleViewBtn" class="toggle-view-btn">👁️ Hide/Show Mask</button>
+            </div>
+        </div>
+
+        <div class="canvas-area">
+            <div class="canvas-wrapper">
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="drawCanvas" width="600" height="400"></canvas>
+                    <canvas id="imageCanvas" width="600" height="400" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+                </div>
+                <div class="canvas-label">
+                    🖍️ Paint on the canvas above (white areas = where particles will appear)
+                    <br><small>💡 Tip: Use brush to paint over the image below</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="generateVideoBtn" style="background:#2196F3; color:white; padding:12px 30px; font-size:16px;">
+                🎬 Generate Video with Particles
+            </button>
+        </div>
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div id="status" class="status info">👇 Upload an image, then paint on it! 👇</div>
+    </div>
+
+    <script>
+        const imageCanvas = document.getElementById('imageCanvas');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const ctxImage = imageCanvas.getContext('2d');
+        const ctxDraw = drawCanvas.getContext('2d');
+        
+        let isDrawing = false;
+        let isErasing = false;
+        let brushSize = 20;
+        let currentImage = null;
+        let showMask = true;
+        
+        // DOM elements
+        const uploadInput = document.getElementById('uploadImage');
+        const brushSizeSlider = document.getElementById('brushSize');
+        const sizeValue = document.getElementById('sizeValue');
+        const brushPreview = document.getElementById('brushPreview');
+        const eraseModeBtn = document.getElementById('eraseModeBtn');
+        const drawModeBtn = document.getElementById('drawModeBtn');
+        const clearMaskBtn = document.getElementById('clearMaskBtn');
+        const toggleViewBtn = document.getElementById('toggleViewBtn');
+        const generateBtn = document.getElementById('generateVideoBtn');
+        const statusDiv = document.getElementById('status');
+        const particleColorPicker = document.getElementById('particleColor');
+        const videoFormatSelect = document.getElementById('videoFormat');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
+        
+        // Scroll to bottom functionality
+        scrollToBottomBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+        
+        // Show/hide scroll button based on scroll position
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 200) {
+                scrollToBottomBtn.style.display = 'flex';
+            } else {
+                scrollToBottomBtn.style.display = 'flex'; // Always show as requested
+            }
+        });
+        
+        // Initialize
+        function initCanvas(width, height) {
+            drawCanvas.width = width;
+            drawCanvas.height = height;
+            imageCanvas.width = width;
+            imageCanvas.height = height;
+            
+            ctxDraw.clearRect(0, 0, width, height);
+            ctxDraw.fillStyle = 'rgba(0,0,0,0.3)';
+            ctxDraw.fillRect(0, 0, width, height);
+            
+            // Draw grid pattern
+            ctxDraw.fillStyle = 'rgba(255,255,255,0.1)';
+            for (let i = 0; i < width; i += 20) {
+                ctxDraw.fillRect(i, 0, 1, height);
+                ctxDraw.fillRect(0, i, width, 1);
+            }
+        }
+        
+        // Upload image
+        uploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                
+                // Resize to fit screen
+                let targetWidth = width;
+                let targetHeight = height;
+                if (width > 800) {
+                    targetWidth = 800;
+                    targetHeight = (height * 800) / width;
+                }
+                if (height > 600) {
+                    targetHeight = 600;
+                    targetWidth = (width * 600) / height;
+                }
+                
+                targetWidth = Math.floor(targetWidth);
+                targetHeight = Math.floor(targetHeight);
+                
+                drawCanvas.width = targetWidth;
+                drawCanvas.height = targetHeight;
+                imageCanvas.width = targetWidth;
+                imageCanvas.height = targetHeight;
+                
+                ctxImage.drawImage(img, 0, 0, targetWidth, targetHeight);
+                
+                ctxDraw.clearRect(0, 0, targetWidth, targetHeight);
+                ctxDraw.fillStyle = 'rgba(0,0,0,0.2)';
+                ctxDraw.fillRect(0, 0, targetWidth, targetHeight);
+                
+                ctxDraw.fillStyle = 'rgba(255,255,255,0.1)';
+                for (let i = 0; i < targetWidth; i += 20) {
+                    ctxDraw.fillRect(i, 0, 1, targetHeight);
+                    ctxDraw.fillRect(0, i, targetWidth, 1);
+                }
+                
+                currentImage = { width: targetWidth, height: targetHeight };
+                
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = '✅ Image loaded! Now paint where you want particles to appear. Use white color on the canvas above!';
+                
+                const container = document.getElementById('canvasContainer');
+                container.style.position = 'relative';
+                container.style.width = targetWidth + 'px';
+                container.style.height = targetHeight + 'px';
+            };
+            img.src = URL.createObjectURL(file);
+        });
+        
+        // Drawing functions
+        function getCanvasCoords(e) {
+            const rect = drawCanvas.getBoundingClientRect();
+            const scaleX = drawCanvas.width / rect.width;
+            const scaleY = drawCanvas.height / rect.height;
+            
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            let canvasX = (clientX - rect.left) * scaleX;
+            let canvasY = (clientY - rect.top) * scaleY;
+            canvasX = Math.min(Math.max(0, canvasX), drawCanvas.width);
+            canvasY = Math.min(Math.max(0, canvasY), drawCanvas.height);
+            
+            return { x: canvasX, y: canvasY };
+        }
+        
+        function drawAt(x, y) {
+            const color = isErasing ? 'rgba(0,0,0,0)' : 'rgba(255,255,255,0.8)';
+            
+            ctxDraw.beginPath();
+            ctxDraw.arc(x, y, brushSize/2, 0, Math.PI * 2);
+            ctxDraw.fillStyle = color;
+            ctxDraw.fill();
+            
+            ctxDraw.beginPath();
+            ctxDraw.arc(x, y, brushSize/2, 0, Math.PI * 2);
+            ctxDraw.strokeStyle = isErasing ? '#ff4444' : '#44ff44';
+            ctxDraw.lineWidth = 1;
+            ctxDraw.stroke();
+        }
+        
+        function startDraw(e) {
+            isDrawing = true;
+            e.preventDefault();
+            const { x, y } = getCanvasCoords(e);
+            drawAt(x, y);
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const { x, y } = getCanvasCoords(e);
+            drawAt(x, y);
+        }
+        
+        function stopDraw() {
+            isDrawing = false;
+        }
+        
+        drawCanvas.addEventListener('mousedown', startDraw);
+        drawCanvas.addEventListener('mousemove', draw);
+        drawCanvas.addEventListener('mouseup', stopDraw);
+        drawCanvas.addEventListener('mouseleave', stopDraw);
+        
+        drawCanvas.addEventListener('touchstart', startDraw);
+        drawCanvas.addEventListener('touchmove', draw);
+        drawCanvas.addEventListener('touchend', stopDraw);
+        
+        brushSizeSlider.addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value);
+            sizeValue.textContent = brushSize;
+            brushPreview.style.width = brushSize + 'px';
+            brushPreview.style.height = brushSize + 'px';
+        });
+        
+        drawModeBtn.addEventListener('click', () => {
+            isErasing = false;
+            statusDiv.innerHTML = '✏️ Draw mode active. Paint WHITE areas where particles should appear.';
+            statusDiv.className = 'status info';
+        });
+        
+        eraseModeBtn.addEventListener('click', () => {
+            isErasing = true;
+            statusDiv.innerHTML = '🧽 Eraser mode active. Remove particles from painted areas.';
+            statusDiv.className = 'status info';
+        });
+        
+        clearMaskBtn.addEventListener('click', () => {
+            if (currentImage) {
+                ctxDraw.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                ctxDraw.fillStyle = 'rgba(0,0,0,0.2)';
+                ctxDraw.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+                statusDiv.innerHTML = '🗑️ Mask cleared. Paint new areas for particles.';
+                statusDiv.className = 'status info';
+            }
+        });
+        
+        toggleViewBtn.addEventListener('click', () => {
+            showMask = !showMask;
+            if (showMask) {
+                imageCanvas.style.opacity = '1';
+                toggleViewBtn.textContent = '👁️ Hide Mask Layer';
+            } else {
+                imageCanvas.style.opacity = '0.3';
+                toggleViewBtn.textContent = '👁️ Show Mask Layer';
+            }
+        });
+        
+        // Generate video with EXACT duration
+        async function generateVideo() {
+            if (!currentImage) {
+                statusDiv.innerHTML = '❌ Please upload an image first!';
+                statusDiv.className = 'status error';
+                return;
+            }
+            
+            const imageData = ctxDraw.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+            const spawnPoints = [];
+            
+            for (let y = 0; y < drawCanvas.height; y++) {
+                for (let x = 0; x < drawCanvas.width; x++) {
+                    const idx = (y * drawCanvas.width + x) * 4;
+                    if (imageData.data[idx] > 200 && imageData.data[idx+1] > 200 && imageData.data[idx+2] > 200) {
+                        spawnPoints.push({ x, y });
+                    }
+                }
+            }
+            
+            if (spawnPoints.length === 0) {
+                statusDiv.innerHTML = '⚠️ No particle areas painted! Paint WHITE areas on the image first.';
+                statusDiv.className = 'status error';
+                return;
+            }
+            
+            statusDiv.innerHTML = `🎬 Generating video with ${Math.min(500, spawnPoints.length)} particles... Please wait.`;
+            statusDiv.className = 'status info';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            generateBtn.disabled = true;
+            
+            const colorHex = particleColorPicker.value;
+            const r = parseInt(colorHex.slice(1,3), 16);
+            const g = parseInt(colorHex.slice(3,5), 16);
+            const b = parseInt(colorHex.slice(5,7), 16);
+            
+            const numParticles = Math.min(500, spawnPoints.length);
+            const particles = [];
+            
+            for (let i = 0; i < numParticles; i++) {
+                const spawn = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+                particles.push({
+                    x: spawn.x,
+                    y: spawn.y,
+                    vx: (Math.random() - 0.5) * 1.5,
+                    vy: (Math.random() - 0.5) * 1.5,
+                    phase: Math.random() * Math.PI * 2,
+                    size: 2 + Math.random() * 4,
+                    originalX: spawn.x,
+                    originalY: spawn.y
+                });
+            }
+            
+            // EXACT timing variables
+            const fps = 30;
+            const duration = 6; // EXACTLY 6 seconds
+            const totalFrames = fps * duration; // 180 frames
+            
+            const recordCanvas = document.createElement('canvas');
+            recordCanvas.width = drawCanvas.width;
+            recordCanvas.height = drawCanvas.height;
+            const recordCtx = recordCanvas.getContext('2d');
+            
+            // Collect frames manually (more reliable than captureStream)
+            const frames = [];
+            
+            for (let frame = 0; frame < totalFrames; frame++) {
+                // Update progress
+                const progress = (frame / totalFrames) * 100;
+                progressFill.style.width = progress + '%';
+                
+                // Draw background image
+                recordCtx.drawImage(imageCanvas, 0, 0);
+                
+                // Draw all particles
+                for (let p of particles) {
+                    const hoverRadius = 30;
+                    const targetX = p.originalX + Math.sin(frame * 0.03 + p.phase) * hoverRadius * 0.5;
+                    const targetY = p.originalY + Math.cos(frame * 0.04 + p.phase) * hoverRadius * 0.5;
+                    
+                    p.x = p.x * 0.95 + targetX * 0.05;
+                    p.y = p.y * 0.95 + targetY * 0.05;
+                    
+                    p.x += (Math.random() - 0.5) * 0.5;
+                    p.y += (Math.random() - 0.5) * 0.5;
+                    
+                    p.x = Math.min(Math.max(p.x, 0), drawCanvas.width);
+                    p.y = Math.min(Math.max(p.y, 0), drawCanvas.height);
+                    
+                    const pulse = Math.sin(frame * 0.1 + p.phase) * 0.3 + 0.7;
+                    const alpha = 0.5 + Math.sin(frame * 0.15 + p.phase) * 0.3;
+                    const currentSize = p.size * pulse;
+                    
+                    // Draw glow
+                    recordCtx.beginPath();
+                    recordCtx.arc(p.x, p.y, currentSize + 2, 0, Math.PI * 2);
+                    recordCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.3})`;
+                    recordCtx.fill();
+                    
+                    // Draw main particle
+                    recordCtx.beginPath();
+                    recordCtx.arc(p.x, p.y, currentSize, 0, Math.PI * 2);
+                    recordCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha + 0.2})`;
+                    recordCtx.fill();
+                    
+                    // Add highlight
+                    recordCtx.beginPath();
+                    recordCtx.arc(p.x - 1, p.y - 1, currentSize * 0.3, 0, Math.PI * 2);
+                    recordCtx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+                    recordCtx.fill();
+                }
+                
+                // Capture frame as image data
+                frames.push(recordCanvas.toDataURL('image/jpeg', 0.9));
+                
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+            
+            progressFill.style.width = '100%';
+            statusDiv.innerHTML = '📼 Converting frames to video...';
+            
+            // Convert frames to video using MediaRecorder with proper timing
+            const videoStream = recordCanvas.captureStream(fps);
+            const mediaRecorder = new MediaRecorder(videoStream, { 
+                mimeType: videoFormatSelect.value === 'mp4' ? 'video/webm' : 'video/webm'
+            });
+            const chunks = [];
+            
+            mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                
+                if (videoFormatSelect.value === 'mp4') {
+                    // For MP4, we'll still download WebM but rename it
+                    // Modern browsers support WebM, but if you want true MP4, we need conversion
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `particle_hover_${Date.now()}.mp4`; // Rename to .mp4
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    statusDiv.innerHTML = '✅ Video generated and downloaded as MP4! (Note: Some players may still need WebM codec)';
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `particle_hover_${Date.now()}.webm`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    statusDiv.innerHTML = '✅ Video generated and downloaded as WebM!';
+                }
+                
+                statusDiv.className = 'status success';
+                generateBtn.disabled = false;
+                progressBar.style.display = 'none';
+                progressFill.style.width = '0%';
+            };
+            
+            mediaRecorder.start();
+            
+            // Draw frames in real-time
+            let currentFrame = 0;
+            const drawFrame = () => {
+                if (currentFrame >= frames.length) {
+                    mediaRecorder.stop();
+                    return;
+                }
+                
+                const img = new Image();
+                img.onload = () => {
+                    recordCtx.clearRect(0, 0, recordCanvas.width, recordCanvas.height);
+                    recordCtx.drawImage(img, 0, 0);
+                    currentFrame++;
+                    setTimeout(drawFrame, 1000 / fps);
+                };
+                img.src = frames[currentFrame];
+            };
+            
+            drawFrame();
+        }
+        
+        generateBtn.addEventListener('click', generateVideo);
+        
+        brushPreview.style.width = brushSize + 'px';
+        brushPreview.style.height = brushSize + 'px';
+        
+        statusDiv.innerHTML = '📸 Upload an image, then paint WHITE areas where particles should appear!';
+    </script>
+</body>
+</html>
